@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ReceiptIQ - Expense Tracker{% endblock %}</title>
+    <!-- Vendored Local Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+    <!-- Custom Application Styling -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/dashboard">ReceiptIQ</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/receipts">Receipts</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/warranties">Warranties</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/subscriptions">Subscriptions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/inventory">Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/price-history">Price Trends</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/reports">Reports & Tax</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/generator">Generator</a>
+                    </li>
+                    <li class="nav-item" id="nav-admin-link" style="display: none;">
+                        <a class="nav-link text-warning fw-bold" href="/admin">Admin Panel</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-outline-secondary btn-sm me-3" onclick="toggleTheme()" title="Toggle Dark/Light Mode">Theme</button>
+                    <a href="/settings" class="btn btn-outline-info btn-sm me-3" title="Application Settings">Settings</a>
+                    <span class="navbar-text me-3" id="nav-user-label">Loading...</span>
+                    <button class="btn btn-danger btn-sm" onclick="handleLogout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4 px-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Vendored Local Bootstrap JS -->
+    <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    <!-- Vendored Local Chart.js -->
+    <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+    <!-- Custom Application JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            loadCurrentUser();
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

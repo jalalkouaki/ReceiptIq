@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Warranties - ReceiptIQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Warranty Tracking</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWarrantyModal">+ Add Manual Warranty</button>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Purchase Date</th>
+                    <th>Duration</th>
+                    <th>Days Remaining</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="warranties-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+    <div id="warranties-empty" class="empty-state d-none">
+        <h5>No Warranty Items Tracked</h5>
+        <p>Add warranties manually or upload electronics receipts to automatically suggest warranty tracking.</p>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addWarrantyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Manual Warranty</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-warranty-form">
+                    <div class="mb-3">
+                        <label class="form-label">Item Name</label>
+                        <input type="text" id="w-item-name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Purchase Date</label>
+                        <input type="date" id="w-purchase-date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Warranty Duration (Months)</label>
+                        <input type="number" id="w-duration" class="form-control" value="12" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea id="w-notes-input" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">Save Warranty</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadWarranties() {
+    const res = await apiRequest('/api/warranties');
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const body = document.getElementById('warranties-body');
+    const emptyState = document.getElementById('warranties-empty');
+    body.innerHTML = '';
+
+    if (data.warranties.length === 0) {
+        emptyState.classList.remove('d-none');
+    } else {
+        emptyState.classList.add('d-none');
+        data.warranties.forEach(w => {
+            const tr = document.createElement('tr');
+            const statusBadge = w.is_expired ? 
+                '<span class="badge bg-danger">Expired</span>' : 
+                (w.days_remaining <= 60 ? '<span class="badge bg-warning text-dark">Expiring Soon</span>' : '<span class="badge bg-success">Active</span>');
+
+            tr.innerHTML = `
+                <td class="fw-bold">${w.item_name}</td>
+                <td>${w.purchase_date}</td>
+                <td>${w.warranty_months} months</td>
+                <td><span class="badge bg-${w.days_remaining <= 60 ? 'warning' : 'info'}">${w.days_remaining} days</span></td>
+                <td>${statusBadge}</td>
+                <td>${w.notes || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteWarranty(${w.id})">Delete</button>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+}
+
+document.getElementById('add-warranty-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {
+        item_name: document.getElementById('w-item-name').value.trim(),
+        purchase_date: document.getElementById('w-purchase-date').value,
+        warranty_months: parseInt(document.getElementById('w-duration').value),
+        notes: document.getElementById('w-notes-input').value.trim()
+    };
+
+    const res = await apiRequest('/api/warranties', { method: 'POST', body });
+    if (res && res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('addWarrantyModal')).hide();
+        document.getElementById('add-warranty-form').reset();
+        loadWarranties();
+    }
+});
+
+async function deleteWarranty(id) {
+    if (!confirm('Delete this warranty item?')) return;
+    await apiRequest(`/api/warranties/${id}`, { method: 'DELETE' });
+    loadWarranties();
+}
+
+document.addEventListener('DOMContentLoaded', loadWarranties);
+</script>
+{% endblock %}

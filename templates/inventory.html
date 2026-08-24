@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - ReceiptIQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Inventory Management</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvModal">+ Add Item</button>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Unit Cost</th>
+                    <th>Total Value</th>
+                    <th>Reorder Point</th>
+                    <th>Alert Status</th>
+                </tr>
+            </thead>
+            <tbody id="inventory-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+    <div id="inv-empty" class="empty-state d-none">
+        <h5>No Inventory Items Tracked</h5>
+        <p>Keep track of business supplies and inventory quantities.</p>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addInvModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Inventory Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-inv-form">
+                    <div class="mb-3">
+                        <label class="form-label">Item Name</label>
+                        <input type="text" id="inv-name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" id="inv-qty" class="form-control" value="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Unit Cost</label>
+                        <input type="number" step="0.01" id="inv-cost" class="form-control" value="0.00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reorder Point Threshold</label>
+                        <input type="number" id="inv-reorder" class="form-control" value="2">
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">Save Item</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadInventory() {
+    const res = await apiRequest('/api/inventory');
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const body = document.getElementById('inventory-body');
+    const emptyState = document.getElementById('inv-empty');
+    body.innerHTML = '';
+
+    if (data.inventory.length === 0) {
+        emptyState.classList.remove('d-none');
+    } else {
+        emptyState.classList.add('d-none');
+        data.inventory.forEach(i => {
+            const tr = document.createElement('tr');
+            const totalVal = i.quantity * i.unit_cost;
+            const alertBadge = i.reorder_alert ?
+                '<span class="badge bg-danger">Reorder Required</span>' :
+                '<span class="badge bg-success">In Stock</span>';
+
+            tr.innerHTML = `
+                <td class="fw-bold">${i.name}</td>
+                <td class="fw-bold">${i.quantity}</td>
+                <td>$${i.unit_cost.toFixed(2)}</td>
+                <td>$${totalVal.toFixed(2)}</td>
+                <td>${i.reorder_point}</td>
+                <td>${alertBadge}</td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+}
+
+document.getElementById('add-inv-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {
+        name: document.getElementById('inv-name').value.trim(),
+        quantity: parseInt(document.getElementById('inv-qty').value),
+        unit_cost: parseFloat(document.getElementById('inv-cost').value),
+        reorder_point: parseInt(document.getElementById('inv-reorder').value)
+    };
+
+    const res = await apiRequest('/api/inventory', { method: 'POST', body });
+    if (res && res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('addInvModal')).hide();
+        document.getElementById('add-inv-form').reset();
+        loadInventory();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', loadInventory);
+</script>
+{% endblock %}

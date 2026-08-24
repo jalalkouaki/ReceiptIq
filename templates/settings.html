@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - ReceiptIQ{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">System Settings</h2>
+
+<div class="card p-4 style-card" style="max-width: 650px;">
+    <form id="web-settings-form">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Encrypted Database Path</label>
+            <input type="text" id="set-db-path" class="form-control" readonly>
+            <div class="form-text">Change database path via the Tkinter desktop launcher settings.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Logs Directory</label>
+            <input type="text" id="set-logs-dir" class="form-control" readonly>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Server Port</label>
+            <input type="number" id="set-port" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">UI Theme</label>
+            <select id="set-theme" class="form-select">
+                <option value="dark">Dark Theme</option>
+                <option value="light">Light Theme</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">OCR Language</label>
+            <input type="text" id="set-ocr-lang" class="form-control" required>
+        </div>
+
+        <div class="mb-4 form-check">
+            <input type="checkbox" id="set-ollama" class="form-check-input">
+            <label class="form-check-label fw-bold" for="set-ollama">Enable Local Ollama Integration</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary px-4">Save Settings</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadWebSettings() {
+    const res = await apiRequest('/api/settings');
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const cfg = data.settings;
+
+    document.getElementById('set-db-path').value = cfg.DB_PATH || '';
+    document.getElementById('set-logs-dir').value = cfg.LOGS_DIR || '';
+    document.getElementById('set-port').value = cfg.PORT || 5000;
+    document.getElementById('set-theme').value = cfg.THEME || 'dark';
+    document.getElementById('set-ocr-lang').value = cfg.OCR_LANGUAGE || 'eng';
+    document.getElementById('set-ollama').checked = cfg.ENABLE_OLLAMA || false;
+}
+
+document.getElementById('web-settings-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {
+        PORT: parseInt(document.getElementById('set-port').value),
+        THEME: document.getElementById('set-theme').value,
+        OCR_LANGUAGE: document.getElementById('set-ocr-lang').value.trim(),
+        ENABLE_OLLAMA: document.getElementById('set-ollama').checked
+    };
+
+    const res = await apiRequest('/api/settings', { method: 'PATCH', body });
+    if (res && res.ok) {
+        alert('Settings updated successfully!');
+        toggleTheme();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', loadWebSettings);
+</script>
+{% endblock %}

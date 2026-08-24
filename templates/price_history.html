@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Price History Trends - ReceiptIQ{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Item Price History & Inflation Trends</h2>
+
+<div class="card p-3 mb-4">
+    <div class="row g-3">
+        <div class="col-md-9">
+            <input type="text" id="price-search-input" class="form-control" placeholder="Search item or vendor (e.g., Staples, Coffee, Paper)...">
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-primary w-100" onclick="loadPriceHistory()">Search Trends</button>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-3">
+            <h5 class="card-title mb-3">Price Trend Chart</h5>
+            <div style="position: relative; height: 320px;">
+                <canvas id="priceTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3">
+    <h5 class="card-title mb-3">Recorded Price Entries</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Vendor</th>
+                    <th>Item Description</th>
+                    <th>Price</th>
+                    <th>Currency</th>
+                </tr>
+            </thead>
+            <tbody id="price-history-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+    <div id="price-empty" class="empty-state d-none">
+        <h5>No Price History Found</h5>
+        <p>Price entries are automatically logged as you scan receipts.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let priceChart = null;
+
+async function loadPriceHistory() {
+    const query = document.getElementById('price-search-input').value.trim();
+    const res = await apiRequest(`/api/price-history?item=${encodeURIComponent(query)}`);
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const body = document.getElementById('price-history-body');
+    const emptyState = document.getElementById('price-empty');
+    body.innerHTML = '';
+
+    if (data.price_history.length === 0) {
+        emptyState.classList.remove('d-none');
+        if (priceChart) priceChart.destroy();
+    } else {
+        emptyState.classList.add('d-none');
+        data.price_history.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.date}</td>
+                <td class="fw-bold">${p.vendor}</td>
+                <td>${p.item_name}</td>
+                <td class="fw-bold text-primary">$${p.price.toFixed(2)}</td>
+                <td>${p.currency}</td>
+            `;
+            body.appendChild(tr);
+        });
+        renderPriceTrendChart(data.price_history);
+    }
+}
+
+function renderPriceTrendChart(history) {
+    const ctx = document.getElementById('priceTrendChart').getContext('2d');
+    if (priceChart) priceChart.destroy();
+
+    const labels = history.map(h => `${h.date} (${h.vendor})`);
+    const prices = history.map(h => h.price);
+
+    priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Price ($)',
+                data: prices,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', loadPriceHistory);
+</script>
+{% endblock %}

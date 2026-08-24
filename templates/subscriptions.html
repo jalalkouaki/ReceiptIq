@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Subscriptions - ReceiptIQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Subscription Tracker</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSubModal">+ Add Subscription</button>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Frequency</th>
+                    <th>Next Renewal</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="subscriptions-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+    <div id="subs-empty" class="empty-state d-none">
+        <h5>No Subscriptions Detected</h5>
+        <p>Subscriptions will be automatically detected when recurring receipts are uploaded, or you can add them manually.</p>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addSubModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Subscription</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-sub-form">
+                    <div class="mb-3">
+                        <label class="form-label">Vendor Name</label>
+                        <input type="text" id="s-vendor" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Recurring Amount</label>
+                        <input type="number" step="0.01" id="s-amount" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Billing Frequency</label>
+                        <select id="s-freq" class="form-select">
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Next Renewal Date</label>
+                        <input type="date" id="s-renewal" class="form-control" required>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">Save Subscription</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSubscriptions() {
+    const res = await apiRequest('/api/subscriptions');
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const body = document.getElementById('subscriptions-body');
+    const emptyState = document.getElementById('subs-empty');
+    body.innerHTML = '';
+
+    if (data.subscriptions.length === 0) {
+        emptyState.classList.remove('d-none');
+    } else {
+        emptyState.classList.add('d-none');
+        data.subscriptions.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${s.vendor}</td>
+                <td class="fw-bold">$${s.amount.toFixed(2)}</td>
+                <td><span class="badge bg-secondary">${s.frequency}</span></td>
+                <td>${s.next_renewal || 'N/A'}</td>
+                <td>
+                    <button class="btn btn-sm btn-${s.active ? 'success' : 'secondary'}" onclick="toggleSubActive(${s.id}, ${!s.active})">
+                        ${s.active ? 'Active' : 'Paused'}
+                    </button>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSubscription(${s.id})">Delete</button>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+}
+
+document.getElementById('add-sub-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {
+        vendor: document.getElementById('s-vendor').value.trim(),
+        amount: parseFloat(document.getElementById('s-amount').value),
+        frequency: document.getElementById('s-freq').value,
+        next_renewal: document.getElementById('s-renewal').value
+    };
+
+    const res = await apiRequest('/api/subscriptions', { method: 'POST', body });
+    if (res && res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('addSubModal')).hide();
+        document.getElementById('add-sub-form').reset();
+        loadSubscriptions();
+    }
+});
+
+async function toggleSubActive(id, newActive) {
+    await apiRequest(`/api/subscriptions/${id}`, {
+        method: 'PATCH',
+        body: { active: newActive }
+    });
+    loadSubscriptions();
+}
+
+async function deleteSubscription(id) {
+    if (!confirm('Delete this subscription?')) return;
+    await apiRequest(`/api/subscriptions/${id}`, { method: 'DELETE' });
+    loadSubscriptions();
+}
+
+document.addEventListener('DOMContentLoaded', loadSubscriptions);
+</script>
+{% endblock %}

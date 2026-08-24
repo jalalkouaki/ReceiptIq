@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - ReceiptIQ{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-warning">Admin Control Panel</h2>
+
+<!-- Global Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-warning h-100">
+            <div class="text-muted small">Total System Users</div>
+            <div class="h2 fw-bold text-warning mb-0" id="admin-total-users">0</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-info h-100">
+            <div class="text-muted small">Total Scanned Receipts</div>
+            <div class="h2 fw-bold text-info mb-0" id="admin-total-receipts">0</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-success h-100">
+            <div class="text-muted small">Total System Expenses</div>
+            <div class="h2 fw-bold text-success mb-0" id="admin-total-expenses">$0.00</div>
+        </div>
+    </div>
+</div>
+
+<!-- User Management -->
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="card-title mb-0">User Management</h4>
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addUserModal">+ Create New User</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Created At</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-table-body">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create User Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-user-form">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="nu-username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="nu-password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select id="nu-role" class="form-select">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-warning">Create Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadAdminData() {
+    const statsRes = await apiRequest('/api/admin/stats');
+    if (statsRes && statsRes.ok) {
+        const stats = await statsRes.json();
+        document.getElementById('admin-total-users').textContent = stats.total_users;
+        document.getElementById('admin-total-receipts').textContent = stats.total_receipts;
+        document.getElementById('admin-total-expenses').textContent = `$${stats.total_expenses.toFixed(2)}`;
+    }
+
+    const usersRes = await apiRequest('/api/admin/users');
+    if (usersRes && usersRes.ok) {
+        const data = await usersRes.json();
+        const body = document.getElementById('users-table-body');
+        body.innerHTML = '';
+        data.users.forEach(u => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>#${u.id}</td>
+                <td class="fw-bold">${u.username}</td>
+                <td><span class="badge bg-${u.role === 'admin' ? 'warning text-dark' : 'secondary'}">${u.role}</span></td>
+                <td>${u.created_at || 'N/A'}</td>
+                <td>${u.last_login || 'Never'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUserAccount(${u.id}, '${u.username}')">Delete</button>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+}
+
+document.getElementById('create-user-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = {
+        username: document.getElementById('nu-username').value.trim(),
+        password: document.getElementById('nu-password').value.trim(),
+        role: document.getElementById('nu-role').value
+    };
+
+    const res = await apiRequest('/api/admin/users', { method: 'POST', body });
+    if (res && res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+        document.getElementById('create-user-form').reset();
+        loadAdminData();
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to create user');
+    }
+});
+
+async function deleteUserAccount(id, username) {
+    if (!confirm(`Are you sure you want to delete user account '${username}'?`)) return;
+    const res = await apiRequest(`/api/admin/users/${id}`, { method: 'DELETE' });
+    if (res && res.ok) {
+        loadAdminData();
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete user');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadAdminData);
+</script>
+{% endblock %}

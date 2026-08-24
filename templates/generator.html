@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt Generator - ReceiptIQ{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="fw-bold mb-1">Receipt Generator</h2>
+        <p class="text-secondary mb-0">Create custom itemized sales receipts, visualize them in real-time, and export to PDF.</p>
+    </div>
+    <div class="col-md-4 text-md-end align-self-center mt-3 mt-md-0">
+        <button class="btn btn-primary px-4 fw-bold" onclick="downloadPdf()" id="btn-download-pdf">
+            <span id="btn-pdf-text">Download PDF Receipt</span>
+            <span id="btn-pdf-spinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+        </button>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Form Controls & Item Management -->
+    <div class="col-lg-6">
+        <!-- Store Name Configuration Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span class="fw-bold">Store & Business Details</span>
+                <span id="store-role-badge" class="badge bg-secondary">Checking role...</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="input-store-name">Store / Business Name</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="input-store-name" placeholder="Enter Store Name" oninput="updateLivePreview()">
+                        <button class="btn btn-outline-primary" type="button" id="btn-save-store" onclick="saveStoreName()" style="display: none;">Save Default</button>
+                    </div>
+                    <div class="form-text" id="store-name-help">
+                        Loading permissions...
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="input-receipt-num">Receipt #</label>
+                        <input type="text" class="form-control form-control-sm" id="input-receipt-num" placeholder="e.g. REC-1001" oninput="updateLivePreview()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="input-receipt-date">Date & Time</label>
+                        <input type="text" class="form-control form-control-sm" id="input-receipt-date" oninput="updateLivePreview()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="select-payment-method">Payment Method</label>
+                        <select class="form-select form-select-sm" id="select-payment-method" onchange="updateLivePreview()">
+                            <option value="Credit Card" selected>Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Apple Pay / Google Pay">Mobile Wallet</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="input-tax-rate">Tax Rate (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm" id="input-tax-rate" value="8.25" oninput="updateLivePreview()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Article / Line Item Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header py-3">
+                <span class="fw-bold">Add Article / Line Item</span>
+            </div>
+            <div class="card-body">
+                <form id="item-form" onsubmit="event.preventDefault(); addArticle();">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold" for="input-item-name">Article Name</label>
+                            <input type="text" class="form-control form-control-sm" id="input-item-name" placeholder="e.g. Espresso Roast" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold" for="input-item-price">Price ($)</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="input-item-price" placeholder="4.50" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold" for="input-item-qty">Qty</label>
+                            <input type="number" min="1" step="1" class="form-control form-control-sm" id="input-item-qty" value="1" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">+ Add</button>
+                        </div>
+                    </div>
+                </form>
+
+                <hr class="my-3">
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold small text-secondary">Added Articles (<span id="items-count">0</span>)</span>
+                    <button class="btn btn-link text-danger btn-sm p-0 text-decoration-none" onclick="clearAllArticles()">Clear All</button>
+                </div>
+
+                <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Article</th>
+                                <th class="text-center" style="width: 60px;">Qty</th>
+                                <th class="text-end" style="width: 80px;">Price</th>
+                                <th class="text-end" style="width: 80px;">Total</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-table-body">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">No articles added yet. Add articles above to build your receipt.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label small fw-semibold" for="input-receipt-notes">Footer Note / Message</label>
+                    <input type="text" class="form-control form-control-sm" id="input-receipt-notes" value="Thank you for your business!" oninput="updateLivePreview()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Live Receipt Visualization -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span class="fw-bold">Live Receipt Visualization</span>
+                <span class="badge bg-success">Interactive Preview</span>
+            </div>
+            <div class="card-body bg-dark d-flex justify-content-center py-4 px-2" style="border-radius: 0 0 10px 10px;">
+                <!-- Authentic Thermal Receipt Paper -->
+                <div class="receipt-paper" id="receipt-visual">
+                    <!-- Store Header -->
+                    <div class="receipt-header">
+                        <div class="receipt-store-title" id="preview-store-name">RECEIPTIQ STORE</div>
+                        <div class="receipt-sub">Official Sales Receipt</div>
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Metadata -->
+                    <div class="receipt-meta">
+                        <div class="d-flex justify-content-between">
+                            <span>Receipt #:</span>
+                            <span class="fw-bold" id="preview-receipt-num">REC-2026-001</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Date:</span>
+                            <span id="preview-date">2026-08-24 15:45</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Payment:</span>
+                            <span id="preview-payment">Credit Card</span>
+                        </div>
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Itemized Articles List -->
+                    <table class="receipt-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">ITEM</th>
+                                <th style="text-align: center; width: 30px;">QTY</th>
+                                <th style="text-align: right; width: 50px;">PRICE</th>
+                                <th style="text-align: right; width: 60px;">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-items-body">
+                            <tr>
+                                <td colspan="4" class="text-center py-2" style="color: #888; font-style: italic;">No items added</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Totals Breakdown -->
+                    <div class="receipt-totals">
+                        <div class="d-flex justify-content-between">
+                            <span>Subtotal:</span>
+                            <span class="fw-bold" id="preview-subtotal">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span id="preview-tax-label">Tax (8.25%):</span>
+                            <span class="fw-bold" id="preview-tax">$0.00</span>
+                        </div>
+                        <div class="receipt-double-divider"></div>
+                        <div class="d-flex justify-content-between receipt-grand-total">
+                            <span>TOTAL:</span>
+                            <span id="preview-grand-total">$0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Footer & Barcode -->
+                    <div class="receipt-footer">
+                        <div id="preview-notes" class="mb-2">Thank you for your business!</div>
+                        <div class="receipt-barcode">||||| ||||||| |||| |||||||| ||||||</div>
+                        <div style="font-size: 0.7rem;" id="preview-barcode-text">*REC-2026-001*</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let generatorState = {
+        storeName: "ReceiptIQ Store",
+        isAdmin: false,
+        items: [
+            { name: "Coffee Beans 1kg", price: 18.50, quantity: 1 },
+            { name: "Espresso Mug", price: 12.00, quantity: 2 }
+        ]
+    };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Set default formatted date and random receipt ID
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        document.getElementById("input-receipt-date").value = `${year}-${month}-${day} ${hours}:${minutes}`;
+        document.getElementById("input-receipt-num").value = `REC-${year}${month}${day}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        await loadGeneratorConfig();
+        renderItemsTable();
+        updateLivePreview();
+    });
+
+    async function loadGeneratorConfig() {
+        try {
+            const res = await apiRequest("/api/generator/config");
+            if (!res || !res.ok) return;
+
+            const data = await res.json();
+            generatorState.storeName = data.store_name || "ReceiptIQ Store";
+            generatorState.isAdmin = !!data.is_admin;
+
+            const storeInput = document.getElementById("input-store-name");
+            const storeBadge = document.getElementById("store-role-badge");
+            const storeHelp = document.getElementById("store-name-help");
+            const saveBtn = document.getElementById("btn-save-store");
+
+            storeInput.value = generatorState.storeName;
+
+            if (generatorState.isAdmin) {
+                storeInput.removeAttribute("disabled");
+                storeInput.removeAttribute("readonly");
+                storeBadge.className = "badge bg-warning text-dark";
+                storeBadge.textContent = "Admin (Editable)";
+                storeHelp.innerHTML = "As an Administrator, you can update the global default store name.";
+                saveBtn.style.display = "block";
+            } else {
+                storeInput.setAttribute("disabled", "true");
+                storeInput.setAttribute("readonly", "true");
+                storeBadge.className = "badge bg-secondary";
+                storeBadge.textContent = "User (Read-only)";
+                storeHelp.innerHTML = "Store name is configured globally by Administrators.";
+                saveBtn.style.display = "none";
+            }
+        } catch (err) {
+            console.error("Failed to load generator config:", err);
+        }
+    }
+
+    async function saveStoreName() {
+        if (!generatorState.isAdmin) return;
+
+        const storeInput = document.getElementById("input-store-name");
+        const newName = storeInput.value.trim();
+
+        if (!newName) {
+            alert("Store name cannot be empty.");
+            return;
+        }
+
+        try {
+            const res = await apiRequest("/api/generator/store-name", {
+                method: "POST",
+                body: { store_name: newName }
+            });
+
+            if (res && res.ok) {
+                const data = await res.json();
+                generatorState.storeName = data.store_name;
+                updateLivePreview();
+                alert("Store name saved as default successfully!");
+            } else if (res) {
+                const data = await res.json();
+                alert(data.error || "Failed to update store name.");
+            }
+        } catch (err) {
+            alert("An error occurred while saving store name: " + err.message);
+        }
+    }
+
+    function addArticle() {
+        const nameInput = document.getElementById("input-item-name");
+        const priceInput = document.getElementById("input-item-price");
+        const qtyInput = document.getElementById("input-item-qty");
+
+        const name = nameInput.value.trim();
+        const price = parseFloat(priceInput.value);
+        const qty = parseInt(qtyInput.value, 10);
+
+        if (!name) {
+            alert("Please enter an article name.");
+            return;
+        }
+        if (isNaN(price) || price <= 0) {
+            alert("Please enter a valid positive price.");
+            return;
+        }
+        if (isNaN(qty) || qty <= 0) {
+            alert("Quantity must be at least 1.");
+            return;
+        }
+
+        generatorState.items.push({
+            name: name,
+            price: price,
+            quantity: qty
+        });
+
+        // Reset form inputs
+        nameInput.value = "";
+        priceInput.value = "";
+        qtyInput.value = "1";
+        nameInput.focus();
+
+        renderItemsTable();
+        updateLivePreview();
+    }
+
+    function removeArticle(index) {
+        generatorState.items.splice(index, 1);
+        renderItemsTable();
+        updateLivePreview();
+    }
+
+    function clearAllArticles() {
+        if (generatorState.items.length === 0) return;
+        if (confirm("Are you sure you want to clear all items?")) {
+            generatorState.items = [];
+            renderItemsTable();
+            updateLivePreview();
+        }
+    }
+
+    function renderItemsTable() {
+        const tbody = document.getElementById("items-table-body");
+        const countSpan = document.getElementById("items-count");
+        countSpan.textContent = generatorState.items.length;
+
+        if (generatorState.items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No articles added yet. Add articles above to build your receipt.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = generatorState.items.map((item, idx) => {
+            const lineTotal = (item.price * item.quantity).toFixed(2);
+            return `
+                <tr>
+                    <td class="fw-semibold">${escapeHtml(item.name)}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-end">$${item.price.toFixed(2)}</td>
+                    <td class="text-end fw-bold">$${lineTotal}</td>
+                    <td class="text-center">
+                        <button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeArticle(${idx})" title="Remove item">&times;</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    function updateLivePreview() {
+        const storeInput = document.getElementById("input-store-name");
+        const storeName = storeInput.value.trim() || generatorState.storeName || "RECEIPTIQ STORE";
+        const receiptNum = document.getElementById("input-receipt-num").value.trim() || "REC-2026-001";
+        const dateStr = document.getElementById("input-receipt-date").value.trim() || "2026-08-24 15:45";
+        const paymentMethod = document.getElementById("select-payment-method").value;
+        const taxRate = parseFloat(document.getElementById("input-tax-rate").value) || 0.0;
+        const notes = document.getElementById("input-receipt-notes").value.trim();
+
+        // Update header & meta
+        document.getElementById("preview-store-name").textContent = storeName.toUpperCase();
+        document.getElementById("preview-receipt-num").textContent = receiptNum;
+        document.getElementById("preview-date").textContent = dateStr;
+        document.getElementById("preview-payment").textContent = paymentMethod;
+        document.getElementById("preview-notes").textContent = notes;
+        document.getElementById("preview-barcode-text").textContent = `*${receiptNum}*`;
+        document.getElementById("preview-tax-label").textContent = `Tax (${taxRate.toFixed(2)}%):`;
+
+        // Calculate totals and render items
+        let subtotal = 0.0;
+        const previewTbody = document.getElementById("preview-items-body");
+
+        if (generatorState.items.length === 0) {
+            previewTbody.innerHTML = `<tr><td colspan="4" class="text-center py-2" style="color: #888; font-style: italic;">No items added</td></tr>`;
+        } else {
+            previewTbody.innerHTML = generatorState.items.map(item => {
+                const lineTotal = item.price * item.quantity;
+                subtotal += lineTotal;
+                return `
+                    <tr>
+                        <td style="text-align: left;">${escapeHtml(item.name)}</td>
+                        <td style="text-align: center;">${item.quantity}</td>
+                        <td style="text-align: right;">$${item.price.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">$${lineTotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        const taxAmount = subtotal * (taxRate / 100.0);
+        const grandTotal = subtotal + taxAmount;
+
+        document.getElementById("preview-subtotal").textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById("preview-tax").textContent = `$${taxAmount.toFixed(2)}`;
+        document.getElementById("preview-grand-total").textContent = `$${grandTotal.toFixed(2)}`;
+    }
+
+    async function downloadPdf() {
+        if (generatorState.items.length === 0) {
+            alert("Please add at least one article to generate a receipt PDF.");
+            return;
+        }
+
+        const storeName = document.getElementById("input-store-name").value.trim();
+        const receiptNum = document.getElementById("input-receipt-num").value.trim() || "REC-2026-001";
+        const dateStr = document.getElementById("input-receipt-date").value.trim();
+        const paymentMethod = document.getElementById("select-payment-method").value;
+        const taxRate = parseFloat(document.getElementById("input-tax-rate").value) || 0.0;
+        const notes = document.getElementById("input-receipt-notes").value.trim();
+
+        const btnText = document.getElementById("btn-pdf-text");
+        const btnSpinner = document.getElementById("btn-pdf-spinner");
+        const btnDownload = document.getElementById("btn-download-pdf");
+
+        btnText.textContent = "Generating PDF...";
+        btnSpinner.classList.remove("d-none");
+        btnDownload.disabled = true;
+
+        try {
+            const res = await apiRequest("/api/generator/pdf", {
+                method: "POST",
+                body: {
+                    store_name: storeName,
+                    receipt_number: receiptNum,
+                    date: dateStr,
+                    payment_method: paymentMethod,
+                    tax_rate: taxRate,
+                    items: generatorState.items,
+                    notes: notes
+                }
+            });
+
+            if (!res || !res.ok) {
+                const errData = res ? await res.json().catch(() => ({})) : {};
+                throw new Error(errData.error || "Failed to generate receipt PDF.");
+            }
+
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = `receipt_${receiptNum}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (err) {
+            alert("Error downloading receipt PDF: " + err.message);
+        } finally {
+            btnText.textContent = "Download PDF Receipt";
+            btnSpinner.classList.add("d-none");
+            btnDownload.disabled = false;
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+</script>
+{% endblock %}

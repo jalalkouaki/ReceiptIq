@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ReceiptIQ{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-primary h-100">
+            <div class="text-muted small">Total Spent (Year to Date)</div>
+            <div class="h2 fw-bold text-primary mb-0" id="card-total-spent">$0.00</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-success h-100">
+            <div class="text-muted small">Tax Deductible Expenses</div>
+            <div class="h2 fw-bold text-success mb-0" id="card-tax-deductible">$0.00</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 border-warning h-100">
+            <div class="text-muted small">Receipts Needing Review</div>
+            <div class="h2 fw-bold text-warning mb-0" id="card-pending-review">0</div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8 mb-3">
+        <div class="card p-3 h-100">
+            <h5 class="card-title mb-3">Monthly Spending Trend</h5>
+            <div style="position: relative; height: 280px;">
+                <canvas id="monthlySpendingChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-3 h-100">
+            <h5 class="card-title mb-3">Category Breakdown</h5>
+            <div style="position: relative; height: 280px;">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-7 mb-3">
+        <div class="card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">Recent Receipts</h5>
+                <a href="/receipts" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Vendor</th>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-receipts-body">
+                        <!-- Populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="dashboard-empty-state" class="empty-state d-none">
+                <h5>No Receipts Yet</h5>
+                <p>Upload your first receipt to see spending insights and automated OCR tracking.</p>
+                <a href="/receipts" class="btn btn-primary btn-sm">Upload Receipt</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5 mb-3">
+        <div class="card p-3 h-100">
+            <h5 class="card-title mb-3">Upcoming Alerts</h5>
+            <div id="alerts-container">
+                <div class="text-muted small">No pending warranty or subscription alerts.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let monthlyChart = null;
+let categoryChart = null;
+
+async function loadDashboard() {
+    const res = await apiRequest('/api/dashboard/summary');
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+
+    document.getElementById('card-total-spent').textContent = `$${data.total_spent.toFixed(2)}`;
+    document.getElementById('card-tax-deductible').textContent = `$${data.tax_deductible_total.toFixed(2)}`;
+    document.getElementById('card-pending-review').textContent = data.pending_review_count;
+
+    // Populate recent receipts
+    const body = document.getElementById('recent-receipts-body');
+    const emptyState = document.getElementById('dashboard-empty-state');
+    body.innerHTML = '';
+
+    if (data.recent_receipts.length === 0) {
+        emptyState.classList.remove('d-none');
+    } else {
+        emptyState.classList.add('d-none');
+        data.recent_receipts.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><a href="/receipts/${r.id}" class="fw-bold text-decoration-none">${r.vendor}</a></td>
+                <td>${r.receipt_date || 'N/A'}</td>
+                <td><span class="badge" style="background-color: ${r.category_color}">${r.category_name}</span></td>
+                <td>$${r.total_amount.toFixed(2)}</td>
+                <td><span class="badge bg-${r.status === 'completed' ? 'success' : 'warning'}">${r.status}</span></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+
+    // Populate Alerts
+    const alertsContainer = document.getElementById('alerts-container');
+    alertsContainer.innerHTML = '';
+    let hasAlerts = false;
+
+    if (data.warranty_alerts && data.warranty_alerts.length > 0) {
+        hasAlerts = true;
+        data.warranty_alerts.forEach(w => {
+            const div = document.createElement('div');
+            div.className = 'alert alert-warning p-2 mb-2 small d-flex justify-content-between align-items-center';
+            div.innerHTML = `<span><strong>Warranty Expiring:</strong> ${w.item_name}</span><span class="badge bg-danger">${w.days_left} days left</span>`;
+            alertsContainer.appendChild(div);
+        });
+    }
+
+    if (data.subscription_alerts && data.subscription_alerts.length > 0) {
+        hasAlerts = true;
+        data.subscription_alerts.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'alert alert-info p-2 mb-2 small d-flex justify-content-between align-items-center';
+            div.innerHTML = `<span><strong>Active Subscription:</strong> ${s.vendor} ($${s.amount.toFixed(2)})</span><span class="badge bg-primary">Renews: ${s.next_renewal || 'N/A'}</span>`;
+            alertsContainer.appendChild(div);
+        });
+    }
+
+    if (!hasAlerts) {
+        alertsContainer.innerHTML = '<div class="text-muted small">No pending warranty or subscription alerts.</div>';
+    }
+
+    // Render Charts
+    renderMonthlyChart(data.monthly_spending);
+    renderCategoryChart(data.category_breakdown);
+}
+
+function renderMonthlyChart(dataPoints) {
+    const ctx = document.getElementById('monthlySpendingChart').getContext('2d');
+    if (monthlyChart) monthlyChart.destroy();
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    monthlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'Spending ($)',
+                data: dataPoints,
+                backgroundColor: '#0d6efd',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
+
+function renderCategoryChart(categories) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChart) categoryChart.destroy();
+
+    if (!categories || categories.length === 0) {
+        categories = [{ name: 'No Expenses', total: 1, color: '#6c757d' }];
+    }
+
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: categories.map(c => c.name),
+            datasets: [{
+                data: categories.map(c => c.total),
+                backgroundColor: categories.map(c => c.color)
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}

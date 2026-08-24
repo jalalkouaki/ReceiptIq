@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReceiptIQ - Web Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card p-4 shadow-lg" style="max-width: 400px; width: 100%;">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-primary mb-0">ReceiptIQ</h2>
+        </div>
+        <div id="login-alert" class="alert alert-danger d-none"></div>
+        <form id="login-form">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2">Log In</button>
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alertBox = document.getElementById('login-alert');
+            alertBox.classList.add('d-none');
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            try {
+                const res = await apiRequest('/api/auth/login', {
+                    method: 'POST',
+                    body: { username, password }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    setAuthToken(data.token);
+                    window.location.href = data.redirect_url || '/dashboard';
+                } else {
+                    alertBox.textContent = data.error || 'Login failed';
+                    alertBox.classList.remove('d-none');
+                }
+            } catch (err) {
+                alertBox.textContent = 'Server connection error';
+                alertBox.classList.remove('d-none');
+            }
+        });
+    </script>
+</body>
+</html>
