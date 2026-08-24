@@ -62,7 +62,7 @@ python main.py
 ```
 
 ### Default Accounts & Credentials
-
+| **The Paraphrase for encryption** `ReceiptIQKey2026`
 | Role | Username | Password | Purpose |
 | :--- | :--- | :--- | :--- |
 | **Admin** | `admin` | `admin123` | Full admin control panel, store name configuration, user management, and system stats |
