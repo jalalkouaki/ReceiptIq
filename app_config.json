@@ -1,7 +1,7 @@
 {
-    "DB_PATH": "C:/Users/quetz/Desktop/receiptiq/data/receiptiq.db",
-    "STORAGE_PATH": "C:/Users/quetz/Desktop/receiptiq/data/uploads",
-    "LOGS_DIR": "C:/Users/quetz/Desktop/receiptiq/logs",
+    "DB_PATH": "data/receiptiq.db",
+    "STORAGE_PATH": "data/uploads",
+    "LOGS_DIR": "logs",
     "PORT": 5000,
     "SECRET_KEY": "receiptiq-jwt-secret-local-only-key",
     "DEFAULT_ADMIN_USER": "admin",
@@ -9,6 +9,7 @@
     "OCR_LANGUAGE": "eng",
     "ENABLE_OLLAMA": false,
     "OLLAMA_URL": "http://localhost:11434",
-    "THEME": "dark",
-    "STORE_NAME": "ReceiptIQ Store"
+    "THEME": "light",
+    "STORE_NAME": "ReceiptIQ Store",
+    "ENCRYPTION_KEY": "ReceiptIQKey2026"
 }

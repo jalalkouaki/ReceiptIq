@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
     "OLLAMA_URL": "http://localhost:11434",
     "THEME": "dark",
     "STORE_NAME": "ReceiptIQ Store",
-    "ENCRYPTION_KEY": ""  # Should come from ENCRYPTION_KEY env var
+    "ENCRYPTION_KEY": "ReceiptIQKey2026"
 }
 
 
@@ -54,6 +54,13 @@ def load_settings():
     if os.environ.get("DEFAULT_ADMIN_PASSWORD"):
         config["DEFAULT_ADMIN_PASSWORD"] = os.environ.get("DEFAULT_ADMIN_PASSWORD")
 
+    # Resolve relative paths against BASE_DIR to support portable configurations
+    for path_key in ("DB_PATH", "STORAGE_PATH", "LOGS_DIR"):
+        if config.get(path_key):
+            p = Path(config[path_key])
+            if not p.is_absolute():
+                config[path_key] = str((BASE_DIR / p).resolve())
+
     # Ensure required directories exist
     os.makedirs(Path(config["DB_PATH"]).parent, exist_ok=True)
     os.makedirs(config["STORAGE_PATH"], exist_ok=True)
@@ -63,13 +70,24 @@ def load_settings():
 
 
 def save_settings(new_settings):
-    """Save updated non-sensitive settings to JSON file (excluding ENCRYPTION_KEY)."""
+    """Save updated settings to JSON file with portable relative paths."""
     current = load_settings()
     for key, value in new_settings.items():
-        if key != "ENCRYPTION_KEY":  # Never save encryption key to disk
-            current[key] = value
+        current[key] = value
 
-    to_save = {k: v for k, v in current.items() if k != "ENCRYPTION_KEY"}
+    # Convert paths that are within BASE_DIR to relative paths to protect user privacy
+    to_save = {}
+    for k, v in current.items():
+        if k in ("DB_PATH", "STORAGE_PATH", "LOGS_DIR") and isinstance(v, str):
+            try:
+                p = Path(v).resolve()
+                if p.is_relative_to(BASE_DIR):
+                    to_save[k] = p.relative_to(BASE_DIR).as_posix()
+                    continue
+            except (ValueError, TypeError):
+                pass
+        to_save[k] = v
+
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(to_save, f, indent=4)
     return current

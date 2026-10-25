@@ -74,8 +74,13 @@ document.getElementById('web-settings-form').addEventListener('submit', async e 
 
     const res = await apiRequest('/api/settings', { method: 'PATCH', body });
     if (res && res.ok) {
+        const selectedTheme = document.getElementById('set-theme').value;
+        document.documentElement.setAttribute('data-theme', selectedTheme);
+        localStorage.setItem('receiptiq_theme', selectedTheme);
+        updateThemeButtonLabel(selectedTheme);
+        updateChartThemeDefaults(selectedTheme);
+        window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: selectedTheme } }));
         alert('Settings updated successfully!');
-        toggleTheme();
     }
 });
 

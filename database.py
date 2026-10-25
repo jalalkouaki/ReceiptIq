@@ -80,19 +80,18 @@ def get_db_session():
 
 def check_db_encryption(db_path: str, encryption_key: str) -> bool:
     """Test if database can be created/opened with given passphrase."""
-    if not encryption_key:
-        return False
-    if SQLCIPHER_MODULE is None:
+    if not encryption_key or SQLCIPHER_MODULE is None:
         return False
 
     db_file = Path(db_path).resolve()
     db_exists = db_file.exists() and db_file.stat().st_size > 0
+    conn = None
 
     try:
-        # Direct raw DBAPI connection test
         conn = SQLCIPHER_MODULE.connect(str(db_file))
         cursor = conn.cursor()
-        cursor.execute(f"PRAGMA key = '{encryption_key}'")
+        escaped_key = encryption_key.replace("'", "''")
+        cursor.execute(f"PRAGMA key = '{escaped_key}'")
         
         if db_exists:
             # Query sqlite_master to verify key decrypts the file
@@ -103,8 +102,13 @@ def check_db_encryption(db_path: str, encryption_key: str) -> bool:
             cursor.execute("CREATE TABLE IF NOT EXISTS _enc_test (id INT);")
             conn.commit()
 
-        conn.close()
         return True
     except Exception as e:
-        log_event("error", f"Database encryption test failed: {e}", level="ERROR")
+        log_event("error", f"Database encryption test failed: {e}", level="WARNING")
         return False
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass

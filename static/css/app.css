@@ -1,62 +1,110 @@
-:root {
+/* ReceiptIQ Master Theme & Layout Stylesheet */
+
+:root, [data-theme="dark"] {
   --bg-primary: #121218;
   --bg-surface: #1e1e2e;
-  --bg-card: #28283d;
-  --text-primary: #ffffff;
-  --text-secondary: #cbd5e1;
+  --bg-card: #252538;
+  --bg-card-header: rgba(255, 255, 255, 0.04);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
   --border-color: #3b3b58;
   --accent-color: #38bdf8;
-  --input-bg: #1e1e2e;
-  --input-color: #ffffff;
+  --accent-hover: #0ea5e9;
+  --input-bg: #1a1a27;
+  --input-color: #f8fafc;
+  --input-disabled-bg: rgba(255, 255, 255, 0.06);
+  --input-disabled-color: #cbd5e1;
+  --receipt-preview-bg: #181824;
+  --code-bg: #1a1a27;
 }
 
 [data-theme="light"] {
-  --bg-primary: #f4f6f9;
+  --bg-primary: #f1f5f9;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --border-color: #dee2e6;
+  --bg-card-header: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #cbd5e1;
   --accent-color: #0284c7;
+  --accent-hover: #0369a1;
   --input-bg: #ffffff;
-  --input-color: #1e293b;
+  --input-color: #0f172a;
+  --input-disabled-bg: #e2e8f0;
+  --input-disabled-color: #475569;
+  --receipt-preview-bg: #cbd5e1;
+  --code-bg: #f8fafc;
 }
 
+/* Base Body Styles */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Navbar */
 .navbar {
   background-color: var(--bg-surface) !important;
   border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.navbar-brand, .nav-link {
+.navbar-brand {
   color: var(--text-primary) !important;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
-.nav-link.active {
-  font-weight: bold;
+.nav-link {
+  color: var(--text-secondary) !important;
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover, .nav-link:focus {
   color: var(--accent-color) !important;
 }
 
+.nav-link.active {
+  font-weight: 700;
+  color: var(--accent-color) !important;
+}
+
+.navbar-text {
+  color: var(--text-primary) !important;
+  font-weight: 500;
+}
+
+[data-theme="light"] .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+/* Cards & Surfaces */
 .card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   border-radius: 10px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .card-header {
   border-bottom: 1px solid var(--border-color);
-  background-color: rgba(0, 0, 0, 0.15);
+  background-color: var(--bg-card-header);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.card-title {
   color: var(--text-primary);
 }
 
-/* High-contrast Form Controls */
+/* Form Controls & Inputs */
 .form-label, label {
   color: var(--text-primary) !important;
 }
@@ -64,34 +112,80 @@ body {
 .form-control, .form-select {
   background-color: var(--input-bg) !important;
   color: var(--input-color) !important;
-  border-color: var(--border-color) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-control:focus, .form-select:focus {
   background-color: var(--input-bg) !important;
   color: var(--input-color) !important;
   border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.2) !important;
 }
 
 .form-control::placeholder {
-  color: var(--text-secondary) !important;
+  color: var(--text-muted) !important;
   opacity: 0.85;
 }
 
+/* Disabled & Readonly Input Fields (High Contrast in both Light & Dark) */
 .form-control:disabled, .form-control[readonly],
 .form-select:disabled, .form-select[readonly] {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
-  opacity: 0.95;
+  background-color: var(--input-disabled-bg) !important;
+  color: var(--input-disabled-color) !important;
+  opacity: 1 !important;
   border-color: var(--border-color) !important;
+  cursor: not-allowed;
 }
 
 .form-text {
   color: var(--text-secondary) !important;
 }
 
-.text-muted, .text-secondary {
+/* Checkboxes & Radios */
+.form-check-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+}
+
+.form-check-input:checked {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.form-check-label {
+  color: var(--text-primary);
+}
+
+/* Dropdown Options */
+select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.dropdown-menu {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+}
+
+.dropdown-item {
+  color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Typography Helpers */
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.text-secondary {
   color: var(--text-secondary) !important;
 }
 
@@ -110,60 +204,129 @@ body {
   border-color: var(--border-color);
 }
 
+[data-theme="dark"] .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text-primary);
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+  --bs-table-hover-color: var(--text-primary);
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.025);
+  --bs-table-striped-color: var(--text-primary);
+}
+
+[data-theme="light"] .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text-primary);
+  --bs-table-hover-bg: rgba(0, 0, 0, 0.035);
+  --bs-table-hover-color: var(--text-primary);
+  --bs-table-striped-bg: rgba(0, 0, 0, 0.02);
+  --bs-table-striped-color: var(--text-primary);
+}
+
 .table-light, tr.table-light, tr.table-light th, tr.table-light td {
-  background-color: var(--bg-surface) !important;
+  background-color: var(--bg-card-header) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
 }
 
-.table-dark-custom {
-  background-color: var(--bg-surface);
-}
-
-.dropzone {
-  border: 2px dashed var(--accent-color);
-  background-color: rgba(56, 189, 248, 0.08);
-  border-radius: 12px;
-  padding: 40px;
-  text-align: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  color: var(--text-primary);
-}
-
-.dropzone:hover {
-  background-color: rgba(56, 189, 248, 0.18);
-}
-
-.confidence-badge {
-  font-size: 0.85rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
+/* Modals */
 .modal-content {
   background-color: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
 }
 
-.empty-state {
-  padding: 60px 20px;
+.modal-header, .modal-footer {
+  border-color: var(--border-color);
+}
+
+.modal-title {
+  color: var(--text-primary);
+}
+
+/* Close Button Contrast Fix for Dark Mode */
+[data-theme="dark"] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Theme-Aware Alerts */
+[data-theme="dark"] .alert-warning {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fde68a !important;
+}
+
+[data-theme="dark"] .alert-info {
+  background-color: rgba(14, 165, 233, 0.16) !important;
+  border-color: rgba(14, 165, 233, 0.4) !important;
+  color: #bae6fd !important;
+}
+
+[data-theme="dark"] .alert-success {
+  background-color: rgba(34, 197, 94, 0.16) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #bbf7d0 !important;
+}
+
+[data-theme="dark"] .alert-danger {
+  background-color: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fecaca !important;
+}
+
+/* Badges */
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Dark text for bright-colored badges */
+.badge.bg-warning, .badge.text-dark {
+  color: #111827 !important;
+}
+
+/* Dropzone */
+.dropzone {
+  border: 2px dashed var(--accent-color);
+  background-color: rgba(56, 189, 248, 0.06);
+  border-radius: 12px;
+  padding: 40px;
   text-align: center;
-  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  color: var(--text-primary);
 }
 
-/* Receipt Generator Preview Styling */
+.dropzone:hover {
+  background-color: rgba(56, 189, 248, 0.14);
+}
+
+/* Raw OCR Output Display */
+.raw-ocr-box {
+  background-color: var(--code-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Receipt Preview Container */
+.receipt-preview-backdrop {
+  background-color: var(--receipt-preview-bg) !important;
+  border-radius: 0 0 10px 10px;
+  transition: background-color 0.2s ease;
+}
+
+/* Authentic Thermal Receipt Paper Preview */
 .receipt-paper {
-  background: #ffffff;
-  color: #111827;
+  background: #ffffff !important;
+  color: #111827 !important;
   font-family: 'Courier New', Courier, monospace;
   width: 100%;
   max-width: 380px;
   margin: 0 auto;
   padding: 24px 20px;
   border-radius: 4px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
   position: relative;
   border-top: 4px solid #111827;
 }
@@ -190,12 +353,12 @@ body {
   letter-spacing: 1px;
   margin-bottom: 2px;
   text-transform: uppercase;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-sub {
   font-size: 0.75rem;
-  color: #4b5563;
+  color: #4b5563 !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -214,47 +377,47 @@ body {
   font-size: 0.78rem;
   margin-bottom: 8px;
   line-height: 1.3;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-table {
   width: 100%;
   font-size: 0.8rem;
   border-collapse: collapse;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-table th {
   padding: 4px 0;
   border-bottom: 1px dashed #6b7280;
   font-weight: 700;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-table td {
   padding: 4px 0;
   vertical-align: top;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-totals {
   font-size: 0.82rem;
   margin-top: 8px;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-grand-total {
   font-size: 1.15rem;
   font-weight: 900;
   padding-top: 4px;
-  color: #111827;
+  color: #111827 !important;
 }
 
 .receipt-footer {
   text-align: center;
   margin-top: 16px;
   font-size: 0.75rem;
-  color: #4b5563;
+  color: #4b5563 !important;
 }
 
 .receipt-barcode {
@@ -262,5 +425,11 @@ body {
   font-size: 1.1rem;
   font-weight: bold;
   margin: 8px 0 2px 0;
-  color: #111827;
+  color: #111827 !important;
+}
+
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-secondary);
 }

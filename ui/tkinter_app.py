@@ -87,7 +87,14 @@ class ReceiptIQLauncher:
         self.root.resizable(False, False)
 
         self.cfg = load_settings()
-        self.passphrase = os.environ.get("ENCRYPTION_KEY", "")
+        self.passphrase = os.environ.get("ENCRYPTION_KEY", "") or self.cfg.get("ENCRYPTION_KEY", "")
+        # If passphrase is valid, initialize environment variable
+        db_path = self.cfg.get("DB_PATH")
+        if self.passphrase and check_db_encryption(db_path, self.passphrase):
+            os.environ["ENCRYPTION_KEY"] = self.passphrase
+        else:
+            self.passphrase = ""
+
         self.server_mgr = ServerManager.get_instance()
         self.current_user = None
         self.jwt_token = None
@@ -97,61 +104,116 @@ class ReceiptIQLauncher:
 
     def _apply_style(self):
         style = ttk.Style()
-        style.theme_use("clam")
+        style.theme_use('clam')
         
-        bg_color = "#1e1e2e" if self.cfg.get("THEME") == "dark" else "#f8f9fa"
-        fg_color = "#ffffff" if self.cfg.get("THEME") == "dark" else "#212529"
+        is_dark = self.cfg.get('THEME') == 'dark'
+        bg_color = '#1e1e2e' if is_dark else '#f8f9fa'
+        fg_color = '#ffffff' if is_dark else '#212529'
+        card_bg = '#252538' if is_dark else '#ffffff'
+        border_c = '#3b3b58' if is_dark else '#dee2e6'
+        accent_c = '#61afef' if is_dark else '#0d6efd'
 
         self.root.configure(bg=bg_color)
-        style.configure("TFrame", background=bg_color)
-        style.configure("TLabel", background=bg_color, foreground=fg_color, font=("Segoe UI", 10))
-        style.configure("Header.TLabel", font=("Segoe UI", 16, "bold"), foreground="#0d6efd" if self.cfg.get("THEME") == "light" else "#61afef")
-        style.configure("TButton", font=("Segoe UI", 10), padding=6)
-        style.configure("Treeview", rowheight=26, font=("Segoe UI", 9))
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
+        style.configure('TFrame', background=bg_color)
+        style.configure('TLabel', background=bg_color, foreground=fg_color, font=('Segoe UI', 10))
+        style.configure('Header.TLabel', background=bg_color, font=('Segoe UI', 16, 'bold'), foreground=accent_c)
+        style.configure('TButton', font=('Segoe UI', 10), padding=6)
+        style.configure('TLabelframe', background=bg_color, bordercolor=border_c)
+        style.configure('TLabelframe.Label', background=bg_color, foreground=fg_color, font=('Segoe UI', 10, 'bold'))
+        style.configure('TCheckbutton', background=bg_color, foreground=fg_color, font=('Segoe UI', 9))
+        
+        # Treeview styling
+        style.configure('Treeview', background=card_bg, foreground=fg_color, fieldbackground=card_bg, rowheight=26, font=('Segoe UI', 9), bordercolor=border_c)
+        style.configure('Treeview.Heading', background=bg_color, foreground=fg_color, font=('Segoe UI', 10, 'bold'), bordercolor=border_c)
+        style.map('Treeview', background=[('selected', accent_c)], foreground=[('selected', '#ffffff')])
+        
+        # Notebook styling
+        style.configure('TNotebook', background=bg_color, bordercolor=border_c)
+        style.configure('TNotebook.Tab', background=card_bg, foreground=fg_color, padding=[10, 5])
+        style.map('TNotebook.Tab', background=[('selected', accent_c)], foreground=[('selected', '#ffffff')])
 
     def _clear_frame(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
     def _ensure_passphrase(self) -> bool:
-        if not self.passphrase:
-            dialog = tk.Toplevel(self.root)
-            dialog.title("Database Encryption Key")
-            dialog.geometry("400x200")
-            dialog.transient(self.root)
-            dialog.grab_set()
+        db_path = self.cfg.get("DB_PATH")
 
-            ttk.Label(dialog, text="Enter Database Encryption Key:", font=("Segoe UI", 11, "bold")).pack(pady=(20, 5))
-            ttk.Label(dialog, text="All application data is encrypted at rest using SQLCipher.", font=("Segoe UI", 8)).pack(pady=(0, 10))
+        # If already verified and valid, return True immediately
+        if self.passphrase and check_db_encryption(db_path, self.passphrase):
+            os.environ["ENCRYPTION_KEY"] = self.passphrase
+            return True
 
-            entry = ttk.Entry(dialog, show="*", width=35)
-            entry.pack(pady=5)
-            entry.focus()
+        # Check if saved passphrase from config works
+        cfg_key = self.cfg.get("ENCRYPTION_KEY", "")
+        if cfg_key and check_db_encryption(db_path, cfg_key):
+            self.passphrase = cfg_key
+            os.environ["ENCRYPTION_KEY"] = cfg_key
+            return True
 
-            show_var = tk.BooleanVar(value=False)
-            def toggle_show():
-                entry.config(show="" if show_var.get() else "*")
-            ttk.Checkbutton(dialog, text="Show Passphrase", variable=show_var, command=toggle_show).pack(pady=2)
+        # Show dialog with inline validation
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Database Encryption Passphrase")
+        dialog.geometry("440x270")
+        dialog.transient(self.root)
+        dialog.grab_set()
 
-            result = {"pass": None}
+        ttk.Label(dialog, text="Unlock Encrypted Database", font=("Segoe UI", 12, "bold")).pack(pady=(15, 4))
+        ttk.Label(dialog, text="Please enter your SQLCipher database encryption passphrase.\n(Default: ReceiptIQKey2026)", font=("Segoe UI", 9), justify=tk.CENTER).pack(pady=(0, 8))
 
-            def on_ok():
-                val = entry.get().strip()
-                if not val:
-                    messagebox.showerror("Error", "Passphrase cannot be empty!", parent=dialog)
-                    return
-                result["pass"] = val
-                dialog.destroy()
+        lbl_error = ttk.Label(dialog, text="", font=("Segoe UI", 9, "bold"), foreground="#dc3545")
+        lbl_error.pack(pady=(0, 4))
 
-            ttk.Button(dialog, text="Unlock Database", command=on_ok).pack(pady=15)
-            self.root.wait_window(dialog)
+        entry = ttk.Entry(dialog, show="*", width=32, font=("Segoe UI", 10))
+        if self.passphrase:
+            entry.insert(0, self.passphrase)
+        entry.pack(pady=4)
+        entry.focus()
 
-            if not result["pass"]:
-                return False
-            self.passphrase = result["pass"]
+        show_var = tk.BooleanVar(value=False)
+        def toggle_show():
+            entry.config(show="" if show_var.get() else "*")
+        ttk.Checkbutton(dialog, text="Show Passphrase", variable=show_var, command=toggle_show).pack(pady=2)
 
-        os.environ["ENCRYPTION_KEY"] = self.passphrase
+        remember_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(dialog, text="Remember passphrase on this device", variable=remember_var).pack(pady=4)
+
+        result = {"success": False}
+
+        def on_ok():
+            val = entry.get().strip()
+            if not val:
+                lbl_error.config(text="Passphrase cannot be empty!")
+                return
+
+            if not check_db_encryption(db_path, val):
+                lbl_error.config(text="Invalid passphrase! Could not decrypt database.")
+                entry.selection_range(0, tk.END)
+                entry.focus()
+                return
+
+            self.passphrase = val
+            os.environ["ENCRYPTION_KEY"] = val
+            if remember_var.get():
+                save_settings({"ENCRYPTION_KEY": val})
+                self.cfg = load_settings()
+
+            result["success"] = True
+            dialog.destroy()
+
+        entry.bind("<Return>", lambda e: on_ok())
+
+        btn_box = ttk.Frame(dialog)
+        btn_box.pack(pady=12)
+        ttk.Button(btn_box, text="Unlock Database", command=on_ok).pack(side=tk.LEFT, padx=6)
+        ttk.Button(btn_box, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=6)
+
+        self.root.wait_window(dialog)
+
+        if not result["success"]:
+            self.passphrase = ""
+            return False
+
         return True
 
     def _show_main_menu(self):
@@ -190,34 +252,47 @@ class ReceiptIQLauncher:
             return
 
         db_path = self.cfg.get("DB_PATH")
-        if not check_db_encryption(db_path, self.passphrase):
-            messagebox.showerror("Database Error", f"Failed to unlock database at:\n{db_path}\nPlease verify passphrase in Settings.")
+        try:
+            engine, session_factory = init_db(db_path, self.passphrase)
+            session = session_factory()
+            seed_database(session)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to initialize database:\n{e}\nPlease verify settings.")
+            self.passphrase = ""
             return
-
-        engine, session_factory = init_db(db_path, self.passphrase)
-        session = session_factory()
-        seed_database(session)
 
         login_win = tk.Toplevel(self.root)
         login_win.title(f"{role.capitalize()} Login")
-        login_win.geometry("380x260")
+        login_win.geometry("400x290")
         login_win.transient(self.root)
         login_win.grab_set()
 
-        ttk.Label(login_win, text=f"{role.capitalize()} Authentication", style="Header.TLabel").pack(pady=(15, 10))
+        ttk.Label(login_win, text=f"{role.capitalize()} Authentication", style="Header.TLabel").pack(pady=(15, 4))
+
+        default_hint = "Default password: admin123" if role == "admin" else "Default password: user123"
+        ttk.Label(login_win, text=f"Sign in with your account credentials.\n({default_hint})", font=("Segoe UI", 9), justify=tk.CENTER).pack(pady=(0, 8))
+
+        lbl_login_err = ttk.Label(login_win, text="", font=("Segoe UI", 9, "bold"), foreground="#dc3545")
+        lbl_login_err.pack(pady=(0, 4))
 
         form_frame = ttk.Frame(login_win)
-        form_frame.pack(pady=5)
+        form_frame.pack(pady=4)
 
         ttk.Label(form_frame, text="Username:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
         user_entry = ttk.Entry(form_frame, width=25)
+        user_entry.insert(0, "admin" if role == "admin" else "user")
         user_entry.grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Label(form_frame, text="Password:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
         pass_entry = ttk.Entry(form_frame, show="*", width=25)
         pass_entry.grid(row=1, column=1, padx=5, pady=5)
 
-        user_entry.focus()
+        show_pwd_var = tk.BooleanVar(value=False)
+        def toggle_pwd_show():
+            pass_entry.config(show="" if show_pwd_var.get() else "*")
+        ttk.Checkbutton(form_frame, text="Show Password", variable=show_pwd_var, command=toggle_pwd_show).grid(row=2, column=1, sticky="w", padx=5)
+
+        pass_entry.focus()
 
         def do_login():
             uname = user_entry.get().strip()
@@ -225,12 +300,14 @@ class ReceiptIQLauncher:
 
             user = session.query(User).filter_by(username=uname).first()
             if not user or not verify_password(pwd, user.password_hash):
-                messagebox.showerror("Login Failed", "Invalid username or password!", parent=login_win)
+                lbl_login_err.config(text=f"Invalid username or password!\n({default_hint})")
+                pass_entry.selection_range(0, tk.END)
+                pass_entry.focus()
                 log_event("auth", f"Login failed for username '{uname}'", level="WARNING", user=uname)
                 return
 
             if role == "admin" and user.role != "admin":
-                messagebox.showerror("Permission Denied", "Admin privileges required!", parent=login_win)
+                lbl_login_err.config(text="Admin privileges required!")
                 return
 
             self.jwt_token = create_jwt_token(user.id, user.username, user.role)
@@ -249,7 +326,12 @@ class ReceiptIQLauncher:
             else:
                 self.show_user_panel()
 
-        ttk.Button(login_win, text="Authenticate & Launch", command=do_login).pack(pady=15)
+        login_win.bind("<Return>", lambda e: do_login())
+
+        btn_box = ttk.Frame(login_win)
+        btn_box.pack(pady=12)
+        ttk.Button(btn_box, text="Authenticate & Launch", command=do_login).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_box, text="Cancel", command=lambda: (session.close(), login_win.destroy())).pack(side=tk.LEFT, padx=5)
 
     def show_admin_panel(self):
         """Build and display the main persistent Admin Control Panel inside Tkinter."""
@@ -285,7 +367,7 @@ class ReceiptIQLauncher:
 
         self._update_server_status_ui()
 
-        # Notebook Tabs: Users Management, System Stats, Settings, Logs
+        # User management, system stats, and settings tabs
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
 
@@ -354,17 +436,33 @@ class ReceiptIQLauncher:
         entry_port.insert(0, str(self.cfg.get("PORT", 5000)))
         entry_port.grid(row=2, column=1, pady=5, padx=5)
 
+        ttk.Label(settings_tab, text="Encryption Passphrase:").grid(row=3, column=0, sticky="w", pady=5)
+        entry_pass = ttk.Entry(settings_tab, show="*", width=45)
+        current_pass = self.passphrase or self.cfg.get("ENCRYPTION_KEY", "")
+        if current_pass:
+            entry_pass.insert(0, current_pass)
+        entry_pass.grid(row=3, column=1, pady=5, padx=5)
+
+        show_admin_key_var = tk.BooleanVar(value=False)
+        def toggle_admin_key_show():
+            entry_pass.config(show="" if show_admin_key_var.get() else "*")
+        ttk.Checkbutton(settings_tab, text="Show", variable=show_admin_key_var, command=toggle_admin_key_show).grid(row=3, column=2, padx=5, sticky="w")
+
         def save_admin_settings():
+            new_pass = entry_pass.get().strip()
+            self.passphrase = new_pass
+            os.environ["ENCRYPTION_KEY"] = new_pass
             new_cfg = {
                 "DB_PATH": entry_db.get().strip(),
                 "LOGS_DIR": entry_logs.get().strip(),
-                "PORT": int(entry_port.get().strip() or 5000)
+                "PORT": int(entry_port.get().strip() or 5000),
+                "ENCRYPTION_KEY": new_pass
             }
             save_settings(new_cfg)
             self.cfg = load_settings()
             messagebox.showinfo("Success", "Settings saved successfully!")
 
-        ttk.Button(settings_tab, text="Save Configuration", command=save_admin_settings).grid(row=3, column=1, sticky="e", pady=15)
+        ttk.Button(settings_tab, text="Save Configuration", command=save_admin_settings).grid(row=4, column=1, sticky="e", pady=15)
 
     def show_user_panel(self):
         """Display User status window keeping local server alive."""
@@ -502,7 +600,7 @@ class ReceiptIQLauncher:
             messagebox.showerror("Denied", "You cannot delete your own logged-in admin account!")
             return
 
-        if confirm := messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user '{username}'?"):
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user '{username}'?"):
             db = next(get_db_session())
             target = db.query(User).filter_by(id=user_id).first()
             if target:
@@ -524,7 +622,7 @@ class ReceiptIQLauncher:
     def open_settings_dialog(self):
         win = tk.Toplevel(self.root)
         win.title("ReceiptIQ Settings")
-        win.geometry("520x460")
+        win.geometry("540x480")
         win.transient(self.root)
         win.grab_set()
 
@@ -534,7 +632,7 @@ class ReceiptIQLauncher:
         frame.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(frame, text="Database File Path:").grid(row=0, column=0, sticky="w", pady=5)
-        db_entry = ttk.Entry(frame, width=35)
+        db_entry = ttk.Entry(frame, width=32)
         db_entry.insert(0, self.cfg.get("DB_PATH"))
         db_entry.grid(row=0, column=1, pady=5, padx=5)
 
@@ -547,7 +645,7 @@ class ReceiptIQLauncher:
         ttk.Button(frame, text="Browse...", command=browse_db).grid(row=0, column=2, pady=5)
 
         ttk.Label(frame, text="Logs Directory:").grid(row=1, column=0, sticky="w", pady=5)
-        log_entry = ttk.Entry(frame, width=35)
+        log_entry = ttk.Entry(frame, width=32)
         log_entry.insert(0, self.cfg.get("LOGS_DIR"))
         log_entry.grid(row=1, column=1, pady=5, padx=5)
 
@@ -560,28 +658,45 @@ class ReceiptIQLauncher:
         ttk.Button(frame, text="Browse...", command=browse_log).grid(row=1, column=2, pady=5)
 
         ttk.Label(frame, text="Encryption Passphrase:").grid(row=2, column=0, sticky="w", pady=5)
-        key_entry = ttk.Entry(frame, show="*", width=35)
-        if self.passphrase:
-            key_entry.insert(0, self.passphrase)
+        key_entry = ttk.Entry(frame, show="*", width=32)
+        current_key = self.passphrase or self.cfg.get("ENCRYPTION_KEY", "")
+        if current_key:
+            key_entry.insert(0, current_key)
         key_entry.grid(row=2, column=1, pady=5, padx=5)
+
+        key_btn_frame = ttk.Frame(frame)
+        key_btn_frame.grid(row=2, column=2, pady=5, sticky="w")
 
         show_key_var = tk.BooleanVar(value=False)
         def toggle_key_show():
             key_entry.config(show="" if show_key_var.get() else "*")
-        ttk.Checkbutton(frame, text="Show", variable=show_key_var, command=toggle_key_show).grid(row=2, column=2, pady=5, sticky="w")
+        ttk.Checkbutton(key_btn_frame, text="Show", variable=show_key_var, command=toggle_key_show).pack(side=tk.LEFT, padx=2)
+
+        def test_key_action():
+            test_db = db_entry.get().strip()
+            test_k = key_entry.get().strip()
+            if not test_k:
+                messagebox.showwarning("Passphrase Required", "Please enter a passphrase to test.", parent=win)
+                return
+            if check_db_encryption(test_db, test_k):
+                messagebox.showinfo("Verification Succeeded", "Success! Passphrase correctly unlocks the database.", parent=win)
+            else:
+                messagebox.showerror("Verification Failed", "Failed! Passphrase does not unlock the database.", parent=win)
+
+        ttk.Button(key_btn_frame, text="Verify", command=test_key_action).pack(side=tk.LEFT, padx=2)
 
         ttk.Label(frame, text="Server Port:").grid(row=3, column=0, sticky="w", pady=5)
-        port_entry = ttk.Entry(frame, width=35)
+        port_entry = ttk.Entry(frame, width=32)
         port_entry.insert(0, str(self.cfg.get("PORT", 5000)))
         port_entry.grid(row=3, column=1, pady=5, padx=5)
 
         ttk.Label(frame, text="UI Theme:").grid(row=4, column=0, sticky="w", pady=5)
-        theme_combo = ttk.Combobox(frame, values=["dark", "light"], state="readonly", width=32)
+        theme_combo = ttk.Combobox(frame, values=["dark", "light"], state="readonly", width=29)
         theme_combo.set(self.cfg.get("THEME", "dark"))
         theme_combo.grid(row=4, column=1, pady=5, padx=5)
 
         ttk.Label(frame, text="OCR Language:").grid(row=5, column=0, sticky="w", pady=5)
-        ocr_entry = ttk.Entry(frame, width=35)
+        ocr_entry = ttk.Entry(frame, width=32)
         ocr_entry.insert(0, self.cfg.get("OCR_LANGUAGE", "eng"))
         ocr_entry.grid(row=5, column=1, pady=5, padx=5)
 
@@ -590,7 +705,8 @@ class ReceiptIQLauncher:
         ollama_check.grid(row=6, column=1, sticky="w", pady=5)
 
         def save_and_close():
-            self.passphrase = key_entry.get().strip()
+            new_pass = key_entry.get().strip()
+            self.passphrase = new_pass
             os.environ["ENCRYPTION_KEY"] = self.passphrase
 
             new_cfg = {
@@ -599,7 +715,8 @@ class ReceiptIQLauncher:
                 "PORT": int(port_entry.get().strip() or 5000),
                 "THEME": theme_combo.get(),
                 "OCR_LANGUAGE": ocr_entry.get().strip(),
-                "ENABLE_OLLAMA": ollama_var.get()
+                "ENABLE_OLLAMA": ollama_var.get(),
+                "ENCRYPTION_KEY": new_pass
             }
             save_settings(new_cfg)
             self.cfg = load_settings()

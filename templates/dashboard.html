@@ -206,5 +206,6 @@ function renderCategoryChart(categories) {
 }
 
 document.addEventListener('DOMContentLoaded', loadDashboard);
+window.addEventListener('themeChanged', () => { loadDashboard(); });
 </script>
 {% endblock %}

@@ -21,8 +21,27 @@ function clearAuthToken() {
   localStorage.removeItem('receiptiq_token');
 }
 
+// Sync Chart.js default colors with current theme
+function updateChartThemeDefaults(theme) {
+  if (typeof Chart !== 'undefined') {
+    const isDark = theme === 'dark';
+    Chart.defaults.color = isDark ? '#cbd5e1' : '#334155';
+    Chart.defaults.borderColor = isDark ? '#3b3b58' : '#e2e8f0';
+    if (Chart.defaults.plugins && Chart.defaults.plugins.legend) {
+      Chart.defaults.plugins.legend.labels.color = isDark ? '#f8fafc' : '#0f172a';
+    }
+  }
+}
+
+function updateThemeButtonLabel(theme) {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+  }
+}
+
 (function () {
-  // 1. Capture token from URL query string if present
+  // Capture token from URL query string if present
   const urlParams = new URLSearchParams(window.location.search);
   const tokenFromUrl = urlParams.get('token');
   if (tokenFromUrl) {
@@ -35,10 +54,16 @@ function clearAuthToken() {
     getAuthToken();
   }
 
-  // 2. Theme Initialization
+  // Theme Initialization
   const currentTheme = localStorage.getItem('receiptiq_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', currentTheme);
+  updateChartThemeDefaults(currentTheme);
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  updateThemeButtonLabel(currentTheme);
+});
 
 // Helper function for authenticated API requests
 async function apiRequest(url, options = {}) {
@@ -111,4 +136,7 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', current);
   localStorage.setItem('receiptiq_theme', current);
+  updateThemeButtonLabel(current);
+  updateChartThemeDefaults(current);
+  window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: current } }));
 }

@@ -16,19 +16,19 @@ BUILTIN_CATEGORIES = [
 
 
 def seed_database(session):
-    """Seed default admin user and built-in expense categories. NO DUMMY DATA."""
+    """Seed default admin user and initial expense categories."""
     cfg = load_settings()
     admin_user = cfg.get("DEFAULT_ADMIN_USER", "admin")
     admin_pass = cfg.get("DEFAULT_ADMIN_PASSWORD", "admin123")
 
-    # 1. Seed categories
+    # Seed categories
     for cat_data in BUILTIN_CATEGORIES:
         existing = session.query(ExpenseCategory).filter_by(slug=cat_data["slug"]).first()
         if not existing:
             cat = ExpenseCategory(**cat_data)
             session.add(cat)
 
-    # 2. Seed admin user if not exists
+    # Seed admin user if needed
     admin = session.query(User).filter_by(username=admin_user).first()
     if not admin:
         new_admin = User(
@@ -40,7 +40,7 @@ def seed_database(session):
         session.add(new_admin)
         log_event("admin", f"Created default admin user '{admin_user}'", level="INFO")
 
-    # 3. Seed default regular user if not exists
+    # Seed default user if needed
     default_user = session.query(User).filter_by(username="user").first()
     if not default_user:
         new_user = User(

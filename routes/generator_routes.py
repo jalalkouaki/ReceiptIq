@@ -249,7 +249,7 @@ def generate_receipt_pdf():
     story.append(totals_table)
     story.append(Spacer(1, 10))
 
-    # Notes / Barcode simulation footer
+    # Notes and footer
     if notes:
         story.append(Paragraph(notes, center_sub))
         story.append(Spacer(1, 6))

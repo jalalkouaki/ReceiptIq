@@ -71,7 +71,7 @@ def upload_receipt():
     db.commit()
     db.refresh(receipt)
 
-    # 1. Price history recording
+    # Record price history
     if receipt.vendor and receipt.total_amount > 0:
         price_rec = PriceHistory(
             user_id=g.user.id,
@@ -83,7 +83,7 @@ def upload_receipt():
         )
         db.add(price_rec)
 
-    # 2. Electronics Warranty Suggestion
+    # Suggest warranty item for electronics
     warranty_suggested = False
     if ocr_result["is_electronics"]:
         warranty_item = WarrantyItem(
@@ -96,7 +96,7 @@ def upload_receipt():
         db.add(warranty_item)
         warranty_suggested = True
 
-    # 3. Recurring Expense Subscription Detection
+    # Detect recurring subscriptions
     subscription_detected = False
     if receipt.vendor and receipt.total_amount > 0:
         existing_receipts = db.query(Receipt).filter(
