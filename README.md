@@ -73,10 +73,10 @@ Launch the desktop application using:
 python main.py
 ```
 
-<<<<<<< Updated upstream
+
 ### Default Accounts & Credentials
 | **The Paraphrase for encryption** `ReceiptIQKey2026`
-=======
+
 ### Credentials & Security Reference
 
 ReceiptIQ implements two layers of security:
@@ -87,9 +87,7 @@ ReceiptIQ implements two layers of security:
    - Pre-configured in `app_config.json` and remembered automatically.
    - Can be modified or tested at any time via **Settings & Configuration** using the **"Verify"** button.
 
-2. **Application User Credentials**:
 
->>>>>>> Stashed changes
 | Role | Username | Password | Purpose |
 | :--- | :--- | :--- | :--- |
 | **Admin** | `admin` | `admin123` | Full admin control panel, store name configuration, user management, and system stats |
